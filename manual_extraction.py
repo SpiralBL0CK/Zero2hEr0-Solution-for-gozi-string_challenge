@@ -2,6 +2,8 @@ import sys
 import re
 import pefile
 import json
+from aplib import *
+import struct
 from pwn import *
 from dumpulator import Dumpulator
 
@@ -20,11 +22,11 @@ def unpack_config(data):
     config = json.loads(config)
     config['header'] = data[0:2]
     config['flags'] = data[2:4]
-    config['xor_key'] = data[4:8]
+    config['xor_key'] = int.from_bytes(data[4:8],"little")
     config['crc_hash'] = data[8:0xc]
-    config['offset_blob'] = data[0xc:0x10]
-    config['size_of_blob'] = data[0x10:0x14]
-    print(config)
+    config['offset_blob'] =  int.from_bytes(data[0xc:0x10],"little")
+    config['size_of_blob'] = int.from_bytes(data[0x10:0x14],"little")+1
+    return config
 
 
 
@@ -47,15 +49,44 @@ def hash(a):
     print(hexdump(to_check))
     for string in re.finditer(bytes("JJ","utf-8"),to_check):
         struct_list.append(string.start())
-    print("----------------------------------------------")
-    print(to_check)
-    print("**********************************************")
-    print(struct_list)
+    configs = [] 
+    binary_blob_of_data = open(sys.argv[3],"rb").read()
     struct_list.append(struct_list[-1]+20)
     for i in range(len(struct_list)-1):
         passed_data = to_check[struct_list[i]:struct_list[i+1]]
-        unpack_config(passed_data) 
+        print(unpack_config(passed_data))
+        configs.append(unpack_config(passed_data))
+        print("////////////////////////////////////////////:")
+        start = configs[i]['offset_blob']
+        end = configs[i]['offset_blob']+configs[i]['size_of_blob']
+        print(hex(start),hex(end))
+        print("+++++++++++++++++++++++++++++++++++++++++++++")
+        encrypted_package = binary_blob_of_data[start:end]
+        current_key = 0
+        for j in range(0,len(encrypted_package),4):
+            if j == 0:
+                v9 = encrypted_package[j:j+4] 
+                v9 = hex(int.from_bytes(v9))[2:]
+                print(v9)
+                v9 = "".join(reversed([v9[i:i+2] for i in range(0, len(v9), 2)]))
+                v9 = int(v9,base=16)-configs[i]['xor_key']
+                print("||||||||||||||||||||||||||||||||||||||||||||")
+                print("i egal 0")
+                print(hex(v9))
+                current_key = v9+configs[i]['xor_key']
+            else:
+                print(hex(current_key))
+                v9 = encrypted_package[j:j+4]
+                v9 = hex(int.from_bytes(v9))[2:]
+                print("||||||||||||||||||||||||||||||||||||||||||||")
+                print(v9)
+                print("in else")
+                current_key = int(v9,base=16)-current_key
 
+
+        print("]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]")
+
+     #   print(configs)
 
 if __name__ == "__main__":
     hash(dword_1000A344 ^ 0x889A0120)
