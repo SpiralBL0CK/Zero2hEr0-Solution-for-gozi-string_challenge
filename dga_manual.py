@@ -1,8 +1,11 @@
 import sys
 import time
+import codecs
+import re
 from pwn import *
 from ctypes import *
 from ctypes.wintypes import *
+
 
 dword_1000A348 = "0xf21ad7d0"
 dword_1000A2FC = 0x106
@@ -18,8 +21,39 @@ class FILETIME(ctypes.Structure):
         ("dwHighDateTime", ctypes.c_ulong)
     ]
 
+def REV(n: int) -> int:
+    return ((n >> 24) & 0xff) | ((n << 8) & 0xff0000) | ((n >> 8) & 0xff00) | ((n << 24) & 0xff000000)
+    # If output of all the above expression is
+    # OR'ed then it results in 0xddccbbaa
+
 def generate_seed_or_smthig_based_on_date(param1,param2,param3,param4,param5):
-    pass
+    result = param1 >> 2
+    print(hex(result))
+    v6 = 0 
+    ctr = 0
+    decrypted_string = []
+    if(result > 0):
+        v7 = param3 # sau param 2 ca is idetice pana la urma
+        while(result):
+            v8 = int.from_bytes(bytes(v7[ctr:(ctr+4)]))
+            v8 = REV(v8)
+            if(((not param5) or (v8))):
+                res = ((v6 - param4)  & 0xffffffff )
+                print(hex(res))
+                res += v8
+                res = res & 0xffffffff
+                res = REV(res)
+                res = hex(res)
+                v6 = v8
+                decrypted_string.append(res)
+                ctr += 4
+            else:
+                result = 1
+            result-=1
+    #print(decrypted_string)
+    
+    return decrypted_string
+
 
 def sub_100047C8(param1,binar_blob):
     nt_header = binar_blob[binar_blob[0x3c]:]
@@ -113,28 +147,60 @@ def dga(param1_binar_memorie,param2):
     #print(hex(param3+v11+additional_val))
 
     ctr = 0
+    ctr_new_decrypted_string = 0 
+    new_str = ""
+    non_wide_decrypted_string = []
     for param4 in range(0,v5):
         z =  param3+v11+additional_val-param4+param2-1
         print(hex(z))
-        generate_seed_or_smthig_based_on_date(
+        res = generate_seed_or_smthig_based_on_date(
             0x1000,
             v16,
             v16,
             z,
             1
         )
+        print("acu incepe nebunia")
+        print("=============================================")
+        for i in res:
+            for j in range(2,len(i),2):
+                if(i[j:j+2] == "00"):
+                    continue
+                else:
+                    new_str += i[j:j+2]
+                    ctr_new_decrypted_string+=1
+                if(ctr_new_decrypted_string == 4):
+                    non_wide_decrypted_string.append(new_str)
+                    new_str = ""
+                    ctr_new_decrypted_string = 0
+        x = ""
+        for i in non_wide_decrypted_string:
+            x += "".join(i)
+        x = x.encode("utf-8")
+        z = str(codecs.decode(x,'hex'))
+        #print(z)
+        x = (codecs.decode(x,'hex'))
+    
+        count = 0
+        for match in re.finditer(b"(^M|\WM|^.i|\W.i|^i|\Wi).{3,8}?(ft\W|ft$)", x):
+            count += 1
+            #print("match", count, match.group(), "start index", match.start(), "End index", match.end())
+            #print(x[match.end()])
+        print(x)
+        #print(non_wide_decrypted_string)
+        #print(non_wide_decrypted_string)
         #mai ai ultima bcata de ilementat dua generate_-seed blah si restu dupa foru ista
         ctr += 4096 
         v16 = v16[ctr:]
-        break # this is just while we prototype
-        pass
+        break
     
+        
 
 def utcnow_microseconds():
     system_time = FILETIME()
     ctypes.windll.kernel32.GetSystemTimeAsFileTime(ctypes.byref(system_time))
     x = (system_time.dwLowDateTime >> 5 )% 0x13 +1
-    return x
+    return x    
 
 def sub_10004B89(param1):
     dwLowDateTime = 0
@@ -142,7 +208,7 @@ def sub_10004B89(param1):
     v1 = 1  
     rez = (hex(utcnow_microseconds()))
     rez = int(rez,base=16)
-    rez = 0xc
+    rez = 0x13
     dga(param1,rez)
 
 
