@@ -145,6 +145,7 @@ def hash(param1):
 
 def custom_hash(param1,param2):
     #0046f9a4 = couter
+    res = 0 
     edi = param1[0]
     counter = 1
     ecx = param1[4]
@@ -155,12 +156,13 @@ def custom_hash(param1,param2):
         if(ebx == param2):
             print("in if")
             if(( param1[(counter+2)] and 1 ) != 0):
-
+                res = 0xa8+param1[(counter+3)]+param1[2]
+                print(hex(res))
         counter += 6
 
 
 if __name__ == "__main__":
-    hash(dword_1000A344 ^ 0x889A0120)
+    #hash(dword_1000A344 ^ 0x889A0120)
     #for testing purpose only
     v0 = [0x0000000B, 0x00000000, 0xD0665BF6, 0x00000001, 0x00000108, 0x00000000, 0x00000000, 0x00000000,
     0x54432E74, 0x00000001, 0x00000124, 0x00000000, 0x00000000, 0x00000000, 0xBBB5C71D, 0x00000001,
